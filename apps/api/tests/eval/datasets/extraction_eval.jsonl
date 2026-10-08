@@ -1,0 +1,3 @@
+{"name": "clean_tabular", "mime": "text/csv", "content": "email,subject,body\njane@acme.com,Hello,Hi Jane\nbob@globex.io,Hey,Hi Bob\n", "gold": [{"recipient_email": "jane@acme.com", "subject": "Hello", "body": "Hi Jane"}, {"recipient_email": "bob@globex.io", "subject": "Hey", "body": "Hi Bob"}]}
+{"name": "messy_headers", "mime": "text/csv", "content": "Contact,Subject Line,Message\nsam@x.com,Re: pilot,Hi Sam\n", "gold": [{"recipient_email": "sam@x.com", "subject": "Re: pilot", "body": "Hi Sam"}]}
+{"name": "extra_columns", "mime": "text/csv", "content": "name,email,company,subject,body\nDana,dana@initech.io,Initech,Demo,Hi Dana let's chat\n", "gold": [{"recipient_email": "dana@initech.io", "subject": "Demo", "body": "Hi Dana let's chat"}]}

@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+
+# Env & secrets — never commit real credentials; only .env.example ships
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+credentials*.json
+client_secret*.json
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+
+# Data / artifacts
+*.log
+/data/
+minio-data/
+pgdata/
+
+# Operational data / prospect lists (PII — keep local only)
+apps/api/tests/_*.json
+apps/api/tests/_*.py          # one-off send/reroute/follow-up scripts (contain real recipient data)
+bookings/data/
+bookings/**/leads.json
+bookings/**/dossiers*
+*.xlsx
+*.xls
+*.csv

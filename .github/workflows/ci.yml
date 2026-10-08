@@ -1,0 +1,75 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request: {}
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sendpilot
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d sendpilot"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+    env:
+      ENV: test
+      DATABASE_URL: postgresql+asyncpg://sendpilot_app:sendpilot_app@localhost:5432/sendpilot
+      DATABASE_URL_SYNC: postgresql+psycopg://postgres:postgres@localhost:5432/sendpilot
+      REDIS_URL: redis://localhost:6379/0
+      KMS_KEY_ID: local:dev
+      KMS_MASTER_KEY: ci-test-master-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: System deps (libmagic)
+        run: sudo apt-get update && sudo apt-get install -y libmagic1
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Lint & type-check
+        run: |
+          ruff check src tests
+          mypy src
+
+      - name: Create app role
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d sendpilot -f ../../infra/db/init.sql
+
+      - name: Migrate
+        run: alembic upgrade head
+
+      - name: Unit + RLS + chaos + tracking tests
+        run: pytest -q -m "not live"
+
+      - name: Extraction eval gate
+        run: python tests/eval/run_eval.py
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+      - run: npm install
+      - run: NEXT_TELEMETRY_DISABLED=1 npm run build

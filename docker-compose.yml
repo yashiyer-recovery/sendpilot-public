@@ -1,0 +1,123 @@
+name: sendpilot
+
+x-api-build: &api-build
+  build:
+    context: ./apps/api
+  env_file: .env
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sendpilot
+    # Not published to the host (internal only) to avoid port conflicts.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sendpilot"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    # Internal only; no host publishing.
+    volumes: ["minio-data:/data"]
+
+  mailpit:
+    image: axllent/mailpit
+    # SMTP sink on :1025 (internal); web UI + REST API on :8025 (published).
+    ports: ["${MAILPIT_UI_PORT:-8025}:8025"]
+
+  mock-provider:
+    build:
+      context: ./infra/mock-provider
+    ports: ["${MOCK_PORT:-9100}:9100"]
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request;urllib.request.urlopen('http://localhost:9100/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    <<: *api-build
+    command: ["alembic", "upgrade", "head"]
+    # Mount source + migrations so new migrations apply without an image rebuild.
+    volumes:
+      - ./apps/api/src:/app/src
+      - ./apps/api/alembic:/app/alembic
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    <<: *api-build
+    command: ["uvicorn", "sendpilot.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - ./apps/api/src:/app/src
+      - ./apps/api/tests:/app/tests
+      - ./bookings/container/send_followups.py:/app/bookings_send_followups.py
+    ports: ["${API_PORT:-8000}:8000"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      mock-provider:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request;urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  worker:
+    <<: *api-build
+    command: ["arq", "sendpilot.worker.arq_app.WorkerSettings"]
+    volumes:
+      - ./apps/api/src:/app/src
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: ./apps/web
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    env_file: .env
+    ports: ["${WEB_PORT:-3000}:3000"]
+    depends_on:
+      api:
+        condition: service_started
+
+volumes:
+  pgdata: {}
+  minio-data: {}

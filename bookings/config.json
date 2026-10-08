@@ -1,0 +1,9 @@
+{
+  "calendly_link": "https://calendly.com/d/dv5f-2jy-ttx/22min-meeting-with-zorbe",
+  "calendly_pat_env": "CALENDLY_PAT",
+  "followup_offsets_days": { "2": 3, "3": 7 },
+  "pool_file": "../apps/api/tests/_booking_pool.json",
+  "followup_file": "../apps/api/tests/_booking_followups.json",
+  "accounts": ["yash@zorbe.ai", "yash@zorbeai.com"],
+  "lookback_days_for_bookings": 90
+}

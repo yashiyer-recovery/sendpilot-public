@@ -1,0 +1,87 @@
+[project]
+name = "sendpilot"
+version = "0.1.0"
+description = "SendPilot — sales/email AI agent (API, workers, extraction engine)"
+requires-python = ">=3.12"
+dependencies = [
+    # web / async
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "python-multipart>=0.0.9",
+    "httpx>=0.27",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    # db
+    "sqlalchemy[asyncio]>=2.0.30",
+    "asyncpg>=0.29",
+    "psycopg[binary]>=3.2",
+    "alembic>=1.13",
+    # workers / cache / rate-limit
+    "arq>=0.26",
+    "redis>=5.0",
+    # crypto
+    "cryptography>=42.0",
+    # storage
+    "boto3>=1.34",
+    # sending (SMTP provider)
+    "aiosmtplib>=3.0",
+    # ingestion / mime
+    "python-magic>=0.4.27",
+    # validation
+    "email-validator>=2.1",
+    "dnspython>=2.6",
+    # observability
+    "structlog>=24.1",
+    "prometheus-client>=0.20",
+    # extraction (M1) — text/table/OCR + LLM
+    "pandas>=2.2",
+    "openpyxl>=3.1",
+    "python-docx>=1.1",
+    "pdfplumber>=0.11",
+    "beautifulsoup4>=4.12",
+    "pdf2image>=1.17",
+    "pytesseract>=0.3.10",
+    "Pillow>=10.3",
+    "anthropic>=0.40",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "types-boto3>=1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sendpilot"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4", "SIM"]
+ignore = ["B008"]  # FastAPI Depends() in defaults is idiomatic
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "db: requires a live Postgres (DATABASE_URL)",
+    "live: hits a real external API (Anthropic/Gmail); off by default in CI",
+]
+pythonpath = ["src"]
